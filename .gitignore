@@ -1,0 +1,20 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+tmp/
+uploads/
+*.tsbuildinfo
+.turbo/
+api-dev.err.log
+api-dev.log
+web-dev.err.log
+web-dev.log
+docker-info.tmp
+new ui/node_modules/
+new ui/.next/

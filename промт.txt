@@ -1,0 +1,78 @@
+Build a production-ready AI-powered job platform similar to hh.ru / LinkedIn Jobs.
+
+Tech Stack:
+- Backend: Laravel 12 or Node.js (Express/NestJS)
+- Frontend: React + Next.js + Tailwind CSS
+- Database: PostgreSQL
+- Authentication: JWT/Auth system
+- Docker support
+- REST API architecture
+
+Roles:
+1. Candidate
+2. Employer
+3. Admin
+
+Core Features:
+- User registration/login
+- Resume builder
+- Vacancy creation and management
+- Job search with filters
+- Apply to jobs
+- Employer dashboard
+- Candidate dashboard
+- Real-time chat
+- Notifications
+- Admin panel
+- Subscription/payment system
+
+AI Features:
+- AI resume improvement
+- AI job recommendations
+- AI candidate scoring
+- AI-generated cover letters
+- AI assistant chat inside platform
+- AI analytics for employers
+
+Subscription Plans:
+- Free
+- Premium
+- Business
+
+Premium:
+- More job applications
+- AI recommendations
+- Resume promotion
+- Advanced analytics
+
+Business:
+- AI candidate analysis
+- Vacancy promotion
+- Access to candidate database
+- Advanced hiring analytics
+
+Requirements:
+- Clean scalable architecture
+- Modular structure
+- Secure API
+- SEO optimized
+- Responsive UI
+- Production-ready code
+- Swagger/OpenAPI documentation
+- Queue system
+- Redis caching
+- Role & permission system
+
+Generate:
+1. Full project architecture
+2. Database schema
+3. API structure
+4. Frontend structure
+5. Authentication flow
+6. AI integration architecture
+7. Subscription/payment logic
+8. Admin panel structure
+9. MVP roadmap
+10. Deployment instructions
+
+The project should be scalable as a SaaS platform similar to LinkedIn Jobs or hh.ru.
