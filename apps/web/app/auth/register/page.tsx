@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { UserRole } from "@talenthub/shared";
-import { BriefcaseBusiness, UserRound } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { getJobBySlug, UserRole } from "@talenthub/shared";
+import { BriefcaseBusiness, Search, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, useAuth } from "@/lib/auth-context";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { useAuth } from "@/lib/auth-context";
+import { formatApiError } from "@/lib/api-errors";
 import { cn } from "@/lib/utils";
 
-export default function RegisterPage() {
+function RegisterForm() {
+  const searchParams = useSearchParams();
+  const jobSlug = searchParams.get("job");
+  const searchQuery = searchParams.get("q");
+
   const { register, user, loading } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,9 +26,15 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!loading && user) {
-    return null;
-  }
+  const job = jobSlug ? getJobBySlug(jobSlug) : undefined;
+  const intentLabel = job?.title ?? searchQuery ?? null;
+
+  useEffect(() => {
+    if (!loading && user) {
+      window.location.href =
+        user.role === UserRole.Employer ? "/employer/dashboard" : "/candidate/resume/new";
+    }
+  }, [loading, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,11 +43,19 @@ export default function RegisterPage() {
     try {
       await register({ name, email, password, role });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ошибка регистрации");
+      setError(formatApiError(err, "Ошибка регистрации"));
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (!loading && user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Перенаправление...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-mesh flex min-h-screen items-center justify-center px-4 py-12">
@@ -47,8 +68,30 @@ export default function RegisterPage() {
             <span className="text-xl font-bold">TalentHub AI</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold">Создать аккаунт</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Соискатель сразу перейдёт к созданию резюме</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {role === UserRole.Candidate
+              ? "После регистрации — профессиональный мастер резюме с AI"
+              : "Разместите вакансии и найдите кандидатов с AI"}
+          </p>
         </div>
+
+        {intentLabel && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-[var(--brand)]/25 bg-[var(--brand-soft)] p-4">
+            <Search className="mt-0.5 size-5 shrink-0 text-[var(--brand)]" />
+            <div>
+              <p className="text-sm font-semibold text-[var(--brand)]">Ваш запрос</p>
+              <p className="mt-1 text-sm leading-relaxed">{intentLabel}</p>
+              {job && (
+                <Link
+                  href={`/jobs/${job.slug}`}
+                  className="mt-2 inline-block text-sm font-medium text-[var(--brand)] hover:underline"
+                >
+                  Вернуться к вакансии →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-6 shadow-lg">
           {error && (
@@ -65,13 +108,15 @@ export default function RegisterPage() {
                 type="button"
                 onClick={() => setRole(opt.value)}
                 className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
+                  "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all duration-200",
                   role === opt.value
                     ? "border-[var(--brand)] bg-[var(--brand-soft)]"
                     : "border-border hover:border-[var(--brand)]/40",
                 )}
               >
-                <opt.icon className={cn("size-6", role === opt.value ? "text-[var(--brand)]" : "text-muted-foreground")} />
+                <opt.icon
+                  className={cn("size-6", role === opt.value ? "text-[var(--brand)]" : "text-muted-foreground")}
+                />
                 <span className="text-sm font-semibold">{opt.label}</span>
               </button>
             ))}
@@ -80,15 +125,34 @@ export default function RegisterPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Имя</Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Алексей" />
+              <Input
+                id="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Алексей"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Пароль (мин. 8 символов)</Label>
-              <Input id="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                id="password"
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
           </div>
 
@@ -96,14 +160,42 @@ export default function RegisterPage() {
             {submitting ? "Создание..." : "Зарегистрироваться"}
           </Button>
 
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">или</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton role={role} mode="register" />
+
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Уже есть аккаунт?{" "}
-            <Link href="/auth/login" className="font-semibold text-[var(--brand)] hover:underline">
+            <Link
+              href={searchQuery ? `/auth/login?q=${encodeURIComponent(searchQuery)}` : "/auth/login"}
+              className="font-semibold text-[var(--brand)] hover:underline"
+            >
               Войти
             </Link>
           </p>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-mesh flex min-h-screen items-center justify-center">
+          <p className="text-muted-foreground">Загрузка...</p>
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

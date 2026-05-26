@@ -1,31 +1,44 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
+import { UserRole } from "@talenthub/shared";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import type { RequestUser } from "../../common/strategies/jwt.strategy";
+import { VacanciesService } from "./vacancies.service";
 
-@ApiTags('jobs')
+@ApiTags("jobs")
 @Controller()
 export class VacanciesController {
-  @Get('jobs')
+  constructor(private readonly vacancies: VacanciesService) {}
+
+  @Get("jobs")
   search(@Query() query: Record<string, string>) {
-    return { items: [], query };
+    return this.vacancies.list(query);
   }
 
-  @Get('jobs/:slug')
-  details(@Param('slug') slug: string) {
-    return { slug };
+  @Get("jobs/:slug")
+  details(@Param("slug") slug: string) {
+    return this.vacancies.getBySlug(slug);
   }
 
-  @Post('employer/vacancies')
-  create(@Body() body: unknown) {
-    return { message: 'Vacancy create placeholder', body };
+  @Get("jobs/id/:id")
+  detailsById(@Param("id") id: string) {
+    return this.vacancies.getById(id);
   }
 
-  @Get('employer/vacancies')
-  employerVacancies() {
-    return { items: [] };
+  @Post("employer/vacancies")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Employer)
+  create(@CurrentUser() user: RequestUser, @Body() body: any) {
+    return this.vacancies.createForEmployer(user.id, body);
   }
 
-  @Patch('employer/vacancies/:id')
-  update(@Param('id') id: string, @Body() body: unknown) {
-    return { id, body };
+  @Patch("employer/vacancies/:id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Employer)
+  update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() body: any) {
+    return this.vacancies.updateForEmployer(user.id, id, body);
   }
 }

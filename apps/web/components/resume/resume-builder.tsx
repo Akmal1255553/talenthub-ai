@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Lightbulb,
   Plus,
   Sparkles,
   Trash2,
@@ -20,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ResumePreview } from "@/components/resume/resume-preview";
+import { Badge } from "@/components/ui/badge";
+import { ResumePreview, type ResumeTemplate } from "@/components/resume/resume-preview";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -30,6 +32,49 @@ const STEPS = [
   { id: "skills", label: "Навыки" },
   { id: "preview", label: "Превью" },
 ] as const;
+
+const STEP_TIPS: Record<(typeof STEPS)[number]["id"], string> = {
+  personal:
+    "Укажите должность так, как её ищут работодатели: «Frontend-разработчик», а не просто «Разработчик».",
+  experience:
+    "Добавляйте цифры: «увеличил конверсию на 15%», «сократил время релиза с 2 недель до 3 дней».",
+  education: "Укажите релевантные курсы и сертификаты — они повышают доверие рекрутера.",
+  skills: "8–12 ключевых навыков оптимально. Первые 5 — самые сильные по вашему опыту.",
+  preview: "Проверьте орфографию и нажмите «Улучшить с AI» перед сохранением.",
+};
+
+const SKILL_SUGGESTIONS = [
+  "React",
+  "TypeScript",
+  "Node.js",
+  "Python",
+  "SQL",
+  "Git",
+  "Figma",
+  "Agile",
+  "English B2",
+];
+
+const TEMPLATES: { id: ResumeTemplate; label: string; desc: string }[] = [
+  { id: "modern", label: "Современный", desc: "Чистый tech-стиль" },
+  { id: "classic", label: "Классический", desc: "Строгий деловой" },
+  { id: "executive", label: "Executive", desc: "Премиум-оформление" },
+];
+
+function calcCompletion(content: ResumeContent): number {
+  let score = 0;
+  const p = content.personal;
+  if (p.fullName.trim()) score += 10;
+  if (p.email.trim()) score += 10;
+  if (p.desiredPosition.trim()) score += 15;
+  if (p.phone?.trim()) score += 5;
+  if (p.city?.trim()) score += 5;
+  if (content.about?.trim()) score += 10;
+  if (content.experience.some((e) => e.company && e.position)) score += 20;
+  if (content.education.some((e) => e.institution)) score += 10;
+  if (content.skills.length >= 3) score += 15;
+  return Math.min(100, score);
+}
 
 type StepId = (typeof STEPS)[number]["id"];
 
@@ -53,8 +98,11 @@ export function ResumeBuilder({
   const [content, setContent] = useState<ResumeContent>(initialContent);
   const [skillsInput, setSkillsInput] = useState(initialContent.skills.join(", "));
   const [improving, setImproving] = useState(false);
+  const [template, setTemplate] = useState<ResumeTemplate>("modern");
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const completion = calcCompletion(content);
+  const progressPercent = Math.round(((stepIndex + 1) / STEPS.length) * 40 + completion * 0.6);
 
   const updatePersonal = (patch: Partial<ResumeContent["personal"]>) => {
     setContent((c) => ({ ...c, personal: { ...c.personal, ...patch } }));
@@ -148,9 +196,59 @@ export function ResumeBuilder({
     await onSave(title, content);
   };
 
+  const addSuggestedSkill = (skill: string) => {
+    const parts = skillsInput.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.includes(skill)) return;
+    setSkillsInput([...parts, skill].join(", "));
+  };
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_minmax(320px,420px)]">
+    <div className="grid gap-8 xl:grid-cols-[1fr_minmax(340px,440px)]">
       <div className="space-y-6">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Прогресс резюме</p>
+              <p className="text-xs text-muted-foreground">
+                Заполнено на {completion}% · шаг {stepIndex + 1} из {STEPS.length}
+              </p>
+            </div>
+            <Badge variant="outline" className="border-[var(--brand)]/30 text-[var(--brand)]">
+              {progressPercent}%
+            </Badge>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[var(--brand)] to-[oklch(0.55_0.2_290)] transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {TEMPLATES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTemplate(t.id)}
+              className={cn(
+                "cursor-pointer rounded-xl border px-3 py-2 text-left transition-all",
+                template === t.id
+                  ? "border-[var(--brand)] bg-[var(--brand-soft)] shadow-sm"
+                  : "border-border bg-card hover:border-[var(--brand)]/40",
+              )}
+            >
+              <span className="text-sm font-semibold">{t.label}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{t.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand-soft)]/60 px-4 py-3">
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-[var(--brand)]" />
+          <p className="text-sm leading-relaxed text-foreground/90">{STEP_TIPS[step]}</p>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           {STEPS.map((s, i) => (
             <button
@@ -216,9 +314,46 @@ export function ResumeBuilder({
                   <Label htmlFor="phone">Телефон</Label>
                   <Input id="phone" value={content.personal.phone ?? ""} onChange={(e) => updatePersonal({ phone: e.target.value })} placeholder="+998 90 123 45 67" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="salary">Желаемая зарплата (сумма)</Label>
+                  <Input
+                    id="salary"
+                    type="number"
+                    min={0}
+                    value={content.personal.salary?.amount ?? ""}
+                    onChange={(e) => {
+                      const amount = Number(e.target.value);
+                      updatePersonal({
+                        salary: amount
+                          ? {
+                              amount,
+                              currency: content.personal.salary?.currency ?? "UZS",
+                              period: content.personal.salary?.period ?? "month",
+                            }
+                          : undefined,
+                      });
+                    }}
+                    placeholder="15000000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Валюта</Label>
+                  <Input
+                    id="currency"
+                    value={content.personal.salary?.currency ?? "UZS"}
+                    onChange={(e) =>
+                      updatePersonal({
+                        salary: content.personal.salary
+                          ? { ...content.personal.salary, currency: e.target.value }
+                          : undefined,
+                      })
+                    }
+                    placeholder="UZS"
+                  />
+                </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="about">О себе</Label>
-                  <Textarea id="about" value={content.about ?? ""} onChange={(e) => setContent((c) => ({ ...c, about: e.target.value }))} placeholder="Кратко о опыте, сильных сторонах и целях..." rows={4} />
+                  <Textarea id="about" value={content.about ?? ""} onChange={(e) => setContent((c) => ({ ...c, about: e.target.value }))} placeholder="3–4 предложения: опыт, сильные стороны, чего ищете в новой роли..." rows={4} />
                 </div>
               </div>
             </div>
@@ -336,6 +471,18 @@ export function ResumeBuilder({
               <div className="space-y-2">
                 <Label>Ключевые навыки (через запятую)</Label>
                 <Textarea value={skillsInput} onChange={(e) => setSkillsInput(e.target.value)} onBlur={syncSkills} rows={3} placeholder="React, TypeScript, Node.js, Git..." />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {SKILL_SUGGESTIONS.map((s) => (
+                    <Badge
+                      key={s}
+                      variant="outline"
+                      className="cursor-pointer text-xs hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                      onClick={() => addSuggestedSkill(s)}
+                    >
+                      + {s}
+                    </Badge>
+                  ))}
+                </div>
               </div>
               <div className="space-y-3">
                 <Label>Иностранные языки</Label>
@@ -377,7 +524,7 @@ export function ResumeBuilder({
           {step === "preview" && (
             <div className="space-y-4 lg:hidden">
               <h2 className="text-xl font-bold">Проверьте резюме</h2>
-              <ResumePreview content={content} className="shadow-md" />
+              <ResumePreview content={content} template={template} className="shadow-md" />
             </div>
           )}
 
@@ -410,12 +557,22 @@ export function ResumeBuilder({
         </div>
       </div>
 
-      <div className="hidden lg:block">
+      <div className="hidden xl:block">
         <div className="sticky top-24 space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">Предпросмотр</p>
-          <div className="max-h-[calc(100vh-120px)] overflow-y-auto rounded-2xl bg-secondary/50 p-4">
-            <ResumePreview content={content} />
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Живой предпросмотр</p>
+            <Badge variant="secondary" className="text-xs capitalize">
+              {TEMPLATES.find((t) => t.id === template)?.label}
+            </Badge>
           </div>
+          <div className="max-h-[calc(100vh-120px)] overflow-y-auto rounded-2xl bg-secondary/50 p-4 ring-1 ring-border">
+            <ResumePreview content={content} template={template} />
+          </div>
+          {onImprove && (
+            <p className="text-center text-xs text-muted-foreground">
+              AI улучшит формулировки и дополнит блок «О себе»
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FileText, Plus, Sparkles, Trash2 } from "lucide-react";
+import { FileText, Plus, Sparkles, Trash2, UploadCloud, Loader2 } from "lucide-react";
 import type { ResumeListItem } from "@talenthub/shared";
 import { UserRole } from "@talenthub/shared";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,15 @@ export default function ResumeListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const load = async () => {
     try {
       const res = await resumeApi.list();
-      setItems(res.items);
+      const list = res?.items ?? (Array.isArray(res) ? res : []);
+      setItems(list);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Не удалось загрузить резюме");
     } finally {
@@ -35,6 +40,28 @@ export default function ResumeListPage() {
     if (!confirm("Удалить резюме?")) return;
     await resumeApi.remove(id);
     setItems((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handlePdfUpload = async (file: File) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setUploadError("Пожалуйста, загрузите только PDF файл");
+      return;
+    }
+    setUploading(true);
+    setUploadError("");
+    try {
+      const newResume = await resumeApi.uploadPdf(file);
+      if (newResume && newResume.id) {
+        window.location.href = `/candidate/resume/${newResume.id}`;
+      } else {
+        await load();
+      }
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : "Ошибка при загрузке и обработке PDF резюме с помощью AI");
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (auth.loading || loading) {
@@ -71,6 +98,64 @@ export default function ResumeListPage() {
             <p className="mt-2 text-muted-foreground">Убедитесь, что API и PostgreSQL запущены (`docker compose up -d postgres`).</p>
           </div>
         )}
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void handlePdfUpload(file);
+          }}
+          className={cn(
+            "relative mb-8 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300",
+            isDragOver
+              ? "border-primary bg-primary/5 scale-[1.01]"
+              : "border-border bg-card/50 hover:bg-card hover:border-muted-foreground/30",
+            uploading && "pointer-events-none opacity-80"
+          )}
+        >
+          {uploading ? (
+            <div className="flex flex-col items-center justify-center py-4 animate-fade-in">
+              <Loader2 className="size-10 animate-spin text-primary" />
+              <h4 className="mt-4 font-semibold text-lg animate-pulse">Анализируем резюме с помощью AI...</h4>
+              <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+                Извлекаем информацию об образовании, опыте работы и ключевых навыках. Это займет несколько секунд.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center">
+              <div className="rounded-full bg-primary/10 p-4 transition-transform hover:scale-110">
+                <UploadCloud className="size-8 text-primary" />
+              </div>
+              <h4 className="mt-4 font-semibold text-lg">Автоматическое создание резюме</h4>
+              <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+                Просто перетащите сюда свой **PDF файл**, и наша AI система автоматически заполнит все разделы вашего резюме.
+              </p>
+              <label className="mt-4">
+                <span className="cursor-pointer rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition hover:bg-primary/90">
+                  Выбрать PDF
+                </span>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handlePdfUpload(file);
+                  }}
+                />
+              </label>
+            </div>
+          )}
+          {uploadError && (
+            <p className="mt-3 text-sm text-destructive font-medium">{uploadError}</p>
+          )}
+        </div>
 
         {items.length === 0 ? (
           <div className="animate-fade-in-up rounded-2xl border border-dashed border-border bg-card p-12 text-center">

@@ -1,101 +1,62 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, Heart, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { JOB_VACANCIES, type JobVacancy } from "@talenthub/shared";
+import { ExternalLink, Heart, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  verified?: boolean;
-  online?: boolean;
-  location: string;
-  salary?: string;
-  experience?: string;
-  paymentInfo?: string;
-  description?: string;
-  primaryOnly?: boolean;
-  match?: number;
-}
-
-const jobs: Job[] = [
-  {
-    id: "1",
-    title: "[SMOKE] HH auto publish 20260523-085327",
-    company: "OOO BROJECT DYNAMICS",
-    verified: true,
-    online: true,
-    location: "Ташкент",
-    salary: "15000000 so'm за месяц, на руки",
-    experience: "Без опыта",
-    primaryOnly: true,
-    match: 91,
-  },
-  {
-    id: "2",
-    title: "Backend Python Developer | Python-разработчик (Backend)",
-    company: "OOO INVEST TECH SYSTEM",
-    verified: true,
-    location: "Ташкент, Мирзо-Улугбекский район, улица Шахриабад, 128",
-    salary: "1000 - 2000 $ за месяц, на руки",
-    experience: "Опыт 3-6 лет",
-    paymentInfo: "Выплаты: раз в месяц",
-    match: 88,
-  },
-  {
-    id: "3",
-    title: "Strong Junior Golang developer",
-    company: "ЧАКБ ДАВР БАНК",
-    verified: true,
-    location: "Ташкент",
-    experience: "Опыт 1-3 года",
-    match: 76,
-  },
-  {
-    id: "4",
-    title: "Frontend Developer React / Next.js",
-    company: "TalentHub Labs",
-    verified: true,
-    online: true,
-    location: "Удалённо",
-    salary: "2000 - 3500 $ за месяц",
-    experience: "Опыт 3-6 лет",
-    paymentInfo: "Можно из дома",
-    match: 94,
-  },
-];
 
 const filterTabs = [
   "Для вас",
-  "У дома",
-  "Подработка",
-  "Вахта",
-  "от 16 лет",
   "Удалённая работа",
-  "Стажировка",
+  "Без опыта",
+  "IT",
+  "Офис",
 ];
 
-export function JobCards() {
+interface JobCardsProps {
+  onAskAiAboutJob?: (job: JobVacancy) => void;
+}
+
+export function JobCards({ onAskAiAboutJob }: JobCardsProps) {
+  const router = useRouter();
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState("Для вас");
 
-  const toggleSave = (jobId: string) => {
+  const filteredJobs = useMemo(
+    () =>
+      JOB_VACANCIES.filter((job) => {
+        if (activeFilter === "Для вас") return true;
+        if (activeFilter === "Удалённая работа") return job.location.toLowerCase().includes("удал");
+        if (activeFilter === "Без опыта")
+          return job.experience?.includes("Без опыта") || job.experience?.includes("Junior");
+        if (activeFilter === "IT")
+          return job.skills.some((s) => ["React", "Python", "Golang", "TypeScript"].includes(s));
+        return true;
+      }),
+    [activeFilter],
+  );
+
+  const toggleSave = (jobId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setSavedJobs((prev) => {
       const next = new Set(prev);
-      if (next.has(jobId)) {
-        next.delete(jobId);
-      } else {
-        next.add(jobId);
-      }
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
       return next;
     });
   };
 
+  const openJob = (job: JobVacancy) => {
+    router.push(`/jobs/${job.slug}?from=dashboard`);
+  };
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 min-w-0">
       <div className="flex flex-wrap gap-2">
         {filterTabs.map((label) => (
           <button
@@ -103,10 +64,10 @@ export function JobCards() {
             type="button"
             onClick={() => setActiveFilter(label)}
             className={cn(
-              "h-10 rounded-full px-5 text-sm font-semibold transition-all duration-200",
+              "h-10 cursor-pointer rounded-full px-5 text-sm font-semibold transition-all duration-200",
               activeFilter === label
-                ? "bg-foreground text-background shadow-md scale-[1.02]"
-                : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
+                ? "bg-foreground text-background shadow-md"
+                : "bg-secondary text-muted-foreground hover:text-foreground",
             )}
           >
             {label}
@@ -115,91 +76,84 @@ export function JobCards() {
       </div>
 
       <div className="space-y-4">
-        {jobs.map((job, index) => (
+        {filteredJobs.map((job, index) => (
           <article
             key={job.id}
+            role="link"
+            tabIndex={0}
+            onClick={() => openJob(job)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openJob(job);
+              }
+            }}
             className={cn(
-              "group rounded-2xl border border-border bg-white px-6 py-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--brand)]/35 hover:shadow-lg hover:shadow-[var(--brand)]/8 animate-fade-in-up",
+              "cursor-pointer rounded-2xl border bg-card px-6 py-6 shadow-sm transition-all duration-300",
+              "hover:-translate-y-0.5 hover:border-[var(--brand)]/35 hover:shadow-lg animate-fade-in-up",
               index === 0 && "delay-100",
-              index === 1 && "delay-200",
-              index === 2 && "delay-300",
-              index === 3 && "delay-400",
             )}
           >
-            <div className="flex items-start justify-between gap-6">
+            <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start gap-3">
-                  <h2 className="text-xl font-semibold leading-tight md:text-2xl">{job.title}</h2>
-                  {job.match && (
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                      {job.match}% match
+                  <h2 className="text-xl font-semibold leading-tight">{job.title}</h2>
+                  {job.match != null && (
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      {job.match}%
                     </span>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-base md:text-lg">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   {job.salary && <span className="font-medium">{job.salary}</span>}
                   {job.experience && <Pill>{job.experience}</Pill>}
-                  {job.paymentInfo && <Pill>{job.paymentInfo}</Pill>}
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-1.5 text-sm uppercase tracking-wide">
-                  <span>{job.company}</span>
-                  {job.verified && (
-                    <ShieldCheck className="size-4 fill-[var(--brand)]/15 text-[var(--brand)]" />
-                  )}
-                  {job.online && (
-                    <span className="rounded-full border border-emerald-500 px-1.5 py-0.5 text-[10px] normal-case font-medium text-emerald-600">
-                      Онлайн
-                    </span>
-                  )}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
+                  <span className="font-medium">{job.company}</span>
+                  {job.verified && <ShieldCheck className="size-4 text-[var(--brand)]" />}
                 </div>
 
-                <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">{job.location}</p>
+                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{job.description}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{job.location}</p>
 
-                {job.description && (
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{job.description}</p>
-                )}
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Button variant="shine" size="lg">
-                    Откликнуться
-                  </Button>
-                  {!job.primaryOnly && (
-                    <Button variant="brandSoft" size="lg">
-                      Связаться
-                    </Button>
-                  )}
-                </div>
+                <p className="mt-4 text-sm font-semibold text-[var(--brand)]">
+                  Открыть полное описание →
+                </p>
               </div>
 
-              <div className="flex shrink-0 gap-4 pt-1 text-muted-foreground">
-                <button
-                  type="button"
-                  className="rounded-lg p-1.5 transition-all duration-200 hover:bg-secondary hover:text-[var(--brand)]"
-                  aria-label="Скрыть вакансию"
-                >
-                  <Eye className="size-5" />
-                </button>
+              <div className="flex shrink-0 flex-col gap-2">
                 <button
                   type="button"
                   className={cn(
-                    "rounded-lg p-1.5 transition-all duration-200 hover:bg-secondary",
-                    savedJobs.has(job.id)
-                      ? "text-[var(--brand)] scale-110"
-                      : "hover:text-[var(--brand)]",
+                    "cursor-pointer rounded-lg p-2 transition-colors hover:bg-secondary",
+                    savedJobs.has(job.id) && "text-[var(--brand)]",
                   )}
-                  onClick={() => toggleSave(job.id)}
-                  aria-label="Добавить в избранное"
+                  onClick={(e) => toggleSave(job.id, e)}
+                  aria-label="В избранное"
                 >
-                  <Heart
-                    className={cn(
-                      "size-5 transition-transform duration-200",
-                      savedJobs.has(job.id) && "fill-current scale-110",
-                    )}
-                  />
+                  <Heart className={cn("size-5", savedJobs.has(job.id) && "fill-current")} />
                 </button>
               </div>
+            </div>
+
+            <div
+              className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <Button variant="shine" size="sm" asChild>
+                <Link href={`/jobs/${job.slug}?from=dashboard`}>
+                  <ExternalLink className="size-4" />
+                  Подробнее
+                </Link>
+              </Button>
+              {onAskAiAboutJob && (
+                <Button variant="brandSoft" size="sm" onClick={() => onAskAiAboutJob(job)}>
+                  Спросить AI
+                </Button>
+              )}
             </div>
           </article>
         ))}
@@ -210,7 +164,7 @@ export function JobCards() {
 
 function Pill({ children }: { children: React.ReactNode }) {
   return (
-    <Badge variant="secondary" className="rounded-lg bg-secondary px-2.5 py-1 text-sm font-medium">
+    <Badge variant="secondary" className="rounded-lg px-2.5 py-1 text-sm font-medium">
       {children}
     </Badge>
   );

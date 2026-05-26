@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@talenthub/shared";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -34,7 +35,19 @@ export class CandidatesController {
 
   @Post("resumes")
   createResume(@CurrentUser() user: RequestUser, @Body() dto: CreateResumeDto) {
-    return this.candidates.createResume(user.id, dto);
+    return this.candidates.createResume(user.id, dto.title, dto.content as any);
+  }
+
+  @Post("resumes/upload-pdf")
+  @UseInterceptors(FileInterceptor("file"))
+  uploadPdf(
+    @CurrentUser() user: RequestUser,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException("PDF file is required");
+    }
+    return this.candidates.createResumeFromPdf(user.id, file.buffer, file.originalname);
   }
 
   @Patch("resumes/:id")
@@ -43,7 +56,10 @@ export class CandidatesController {
     @Param("id") id: string,
     @Body() dto: UpdateResumeDto,
   ) {
-    return this.candidates.updateResume(user.id, id, dto);
+    return this.candidates.updateResume(user.id, id, {
+      title: dto.title,
+      content: dto.content as any,
+    });
   }
 
   @Delete("resumes/:id")

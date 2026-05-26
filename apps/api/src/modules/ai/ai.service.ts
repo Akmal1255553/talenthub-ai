@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AiCapability } from "@talenthub/shared";
 import type { ResumeContent } from "@talenthub/shared";
+import { isDevDataMode } from "../../dev/dev-store";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -53,6 +54,79 @@ ${JSON.stringify(content)}`;
         content: this.basicImprove(content),
         summary: "Применены базовые улучшения (подключите OPENAI_API_KEY для полного AI)",
       };
+    }
+  }
+
+  async parseResumeFromText(text: string, userId?: string): Promise<ResumeContent | null> {
+    const prompt = `Преобразуй следующий текст резюме в валидный JSON-объект в формате ResumeContent. 
+Возвращай ТОЛЬКО валидный JSON без markdown и без лишнего текста, строго соответствующий интерфейсу:
+{
+  "personal": {
+    "fullName": "ФИО",
+    "email": "email",
+    "phone": "телефон",
+    "city": "город",
+    "desiredPosition": "желаемая должность",
+    "salary": { "amount": 100000, "currency": "RUB", "period": "month" }, // если есть, валюта RUB/USD/EUR, период month/year
+    "employmentTypes": ["FULL_TIME"], // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
+    "relocation": false
+  },
+  "about": "краткое описание",
+  "experience": [
+    {
+      "id": "уникальный_id",
+      "company": "компания",
+      "position": "должность",
+      "startDate": "YYYY-MM",
+      "endDate": "YYYY-MM", // или пусто если работает
+      "current": true, // или false
+      "description": "описание обязанностей"
+    }
+  ],
+  "education": [
+    {
+      "id": "уникальный_id",
+      "institution": "учебное заведение",
+      "degree": "степень/уровень",
+      "field": "специальность",
+      "startDate": "YYYY",
+      "endDate": "YYYY"
+    }
+  ],
+  "skills": ["навык1", "навык2"],
+  "languages": [
+    { "name": "Язык", "level": "Уровень (например, A1, B2, Родной)" }
+  ],
+  "links": [
+    { "label": "GitHub", "url": "https://github.com/..." }
+  ]
+}
+
+Текст резюме:
+${text}`;
+
+    const apiKey = this.config.get<string>("OPENAI_API_KEY");
+    if (!apiKey) {
+      return null;
+    }
+
+    try {
+      const raw = await this.chatCompletion(
+        [
+          {
+            role: "system",
+            content: "Ты эксперт HR и парсинга данных. Твоя задача — извлечь структурированное резюме из текста и вернуть строго JSON.",
+          },
+          { role: "user", content: prompt },
+        ],
+        userId,
+        AiCapability.ResumeImprove,
+      );
+
+      const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
+      return JSON.parse(cleaned) as ResumeContent;
+    } catch {
+      return null;
     }
   }
 
@@ -112,7 +186,7 @@ ${JSON.stringify(content)}`;
 
       const reply = data.choices?.[0]?.message?.content ?? this.fallbackReply(messages[messages.length - 1]?.content ?? "");
 
-      if (userId) {
+      if (userId && !isDevDataMode()) {
         await this.prisma.aiRequest.create({
           data: {
             userId,

@@ -60,10 +60,12 @@ enum AiCapability {
 model User {
   id              String            @id @default(cuid())
   email           String            @unique
-  passwordHash    String
+  passwordHash    String?
   name            String
   role            UserRole
   status          UserStatus        @default(ACTIVE)
+  googleId        String?           @unique
+  avatarUrl       String?
   refreshHash     String?
   candidate       CandidateProfile?
   companyMembers  CompanyMember[]
@@ -140,6 +142,11 @@ model Vacancy {
   currency       String           @default("USD")
   status         VacancyStatus    @default(DRAFT)
   promoted       Boolean          @default(false)
+  responsibilities String?
+  benefits         String?
+  skills           String?
+  experience       String?
+  schedule         String?
   applications   Application[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt

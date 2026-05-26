@@ -5,6 +5,7 @@ import { Building2, Check, Crown, Sparkles, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { billingApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const plans = [
@@ -58,6 +59,17 @@ const plans = [
 
 export function SubscriptionPlans() {
   const [yearly, setYearly] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+
+  const handleCheckout = async (planName: string, current?: boolean) => {
+    if (current) return;
+    setCheckoutPlan(planName);
+    try {
+      await billingApi.checkout(planName.toUpperCase());
+    } finally {
+      setCheckoutPlan(null);
+    }
+  };
 
   return (
     <section className="space-y-6">
@@ -145,9 +157,10 @@ export function SubscriptionPlans() {
                 variant={plan.current ? "outline" : plan.popular ? "shine" : "brandSoft"}
                 size="lg"
                 className="mt-6 w-full"
-                disabled={plan.current}
+                disabled={plan.current || checkoutPlan === plan.name}
+                onClick={() => void handleCheckout(plan.name, plan.current)}
               >
-                {plan.cta}
+                {checkoutPlan === plan.name ? "РџРѕРґРєР»СЋС‡РµРЅРёРµ..." : plan.cta}
               </Button>
             </article>
           );

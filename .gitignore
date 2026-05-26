@@ -16,5 +16,7 @@ api-dev.log
 web-dev.err.log
 web-dev.log
 docker-info.tmp
+.dev-data/
+apps/api/.dev-data/
 new ui/node_modules/
 new ui/.next/

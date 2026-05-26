@@ -76,3 +76,121 @@ Generate:
 10. Deployment instructions
 
 The project should be scalable as a SaaS platform similar to LinkedIn Jobs or hh.ru.
+
+2 # Implementation Plan - Transition from Mocks to Real Database Integrations
+
+This plan outlines the steps required to implement actual PostgreSQL and JSON DevStore database interactions, replace mock endpoints, fix Candidates module compilation errors, and connect the frontend UI components to the API.
+
+## User Review Required
+
+> [!IMPORTANT]
+> The TypeScript compiler currently fails because `CandidatesController` calls methods (`getProfileWithUser`, `improveResumeWithAi`) that do not exist on `CandidatesService`, and there are argument mismatches. We will fix these compilation errors first to allow the application to build and run.
+>
+> For the database integrations, we will support both **PostgreSQL** (production mode) and **JSON DevStore** (development/mock mode enabled by `SKIP_DB_CONNECT=true` or `DISABLE_REDIS=true`).
+
+## Proposed Changes
+
+---
+
+### Candidates Module (Compilation Fixes)
+
+#### [MODIFY] [candidates.service.ts](file:///d:/startup2/apps/api/src/modules/candidates/candidates.service.ts)
+- Inject `AiService` from `AiModule` into `CandidatesService`.
+- Implement `getProfileWithUser(userId: string)`:
+  - In Dev mode: Load candidate profile and merge with User data from `DevStore`.
+  - In Prisma mode: Query candidate profile including user details.
+- Implement `improveResumeWithAi(userId: string, resumeId: string)`:
+  - Fetch the resume by ID.
+  - Call `AiService.improveResume` with the resume's `content` and `userId`.
+  - Save the improved resume content back to Prisma/DevStore.
+  - Update `aiScore` (e.g., generate a score between 75 and 99).
+  - Return the updated resume.
+- Fix argument mismatch for `createResume` and `updateResume` calls in `CandidatesController`:
+  - Align service signatures and DTO properties (e.g., handling salary structures).
+
+#### [MODIFY] [candidates.controller.ts](file:///d:/startup2/apps/api/src/modules/candidates/candidates.controller.ts)
+- Update `createResume` to pass `dto.title` and `dto.content` separately.
+- Update `updateResume` to map types from `UpdateResumeDto` to `{ title?: string; content?: ResumeContent }`.
+
+---
+
+### Vacancies Module (Real Vacancies DB Logic)
+
+#### [MODIFY] [vacancies.service.ts](file:///d:/startup2/apps/api/src/modules/vacancies/vacancies.service.ts)
+- Modify the `list`, `getBySlug`, and `getById` methods:
+  - In Prisma mode: Query the `Vacancy` table with optional search query filters (`q`).
+  - In Dev mode: Use the shared `JOB_VACANCIES` data, or a new `vacancies` list in `DevStore`.
+- Implement vacancy creation and update methods for Employers.
+
+---
+
+### Applications Module (Real Job Applications DB Logic)
+
+#### [MODIFY] [applications.controller.ts](file:///d:/startup2/apps/api/src/modules/applications/applications.controller.ts)
+- Inject a new `ApplicationsService` to handle core logic.
+
+#### [NEW] [applications.service.ts](file:///d:/startup2/apps/api/src/modules/api/src/modules/applications/applications.service.ts)
+- Implement `create(userId: string, vacancyId: string, coverLetter?: string)`:
+  - Create an entry in the `Application` table.
+  - Automatically evaluate an initial `aiScore` using a lightweight simulation or OpenAI call.
+- Implement `listForCandidate(userId: string)`:
+  - Fetch applications made by the candidate.
+- Implement `listForVacancy(employerUserId: string, vacancyId: string)`:
+  - Verify that the employer owns the company listing this vacancy.
+  - Fetch applicant profiles and cover letters.
+- Implement `score(applicationId: string)`:
+  - Use `AiService` to generate a candidate compatibility score.
+
+---
+
+### Employers Module (Real Company Profiles and Metrics)
+
+#### [NEW] [employers.service.ts](file:///d:/startup2/apps/api/src/modules/api/src/modules/employers/employers.service.ts)
+- Implement company CRUD (Create, Read, Update, Delete) linked to `Company` and `CompanyMember` tables.
+- Implement `getAnalytics(employerUserId: string)`:
+  - Query database statistics (active vacancy count, application count, and conversion rate of applications into interviews/offers).
+
+#### [MODIFY] [employers.controller.ts](file:///d:/startup2/apps/api/src/modules/employers/employers.controller.ts)
+- Use `EmployersService` to delegate all company operations and metrics reporting.
+
+---
+
+### Billing & Subscription Module (Real Plans & Subscriptions)
+
+#### [MODIFY] [billing.controller.ts](file:///d:/startup2/apps/api/src/modules/billing/billing.controller.ts)
+- Implement `checkout(userId: string, plan: string)`:
+  - Setup a mock check-out session, create a `Subscription` with status `ACTIVE`, and create a corresponding `Payment` record.
+- Implement a simulated Stripe webhook endpoint to process plans correctly.
+
+---
+
+### Frontend Integration
+
+#### [MODIFY] [api.ts](file:///d:/startup2/apps/web/lib/api.ts)
+- Add API client wrapper methods for applications:
+  - `applicationsApi.list()` -> `GET /candidate/applications`
+  - `applicationsApi.apply(vacancyId, coverLetter)` -> `POST /candidate/applications`
+  - `applicationsApi.listForVacancy(vacancyId)` -> `GET /employer/vacancies/:id/applications`
+- Add API client wrappers for companies and subscriptions:
+  - `employerApi.getCompany(id)` -> `GET /employer/companies/:id`
+  - `employerApi.createCompany(data)` -> `POST /employer/companies`
+  - `billingApi.checkout(plan)` -> `POST /billing/checkout`
+
+#### [MODIFY] [jobs/page.tsx](file:///d:/startup2/apps/web/app/jobs/page.tsx) & [jobs/[slug]/page.tsx](file:///d:/startup2/apps/web/app/jobs/[slug]/page.tsx)
+- Modify catalog and detail views to fetch vacancy data dynamically using `jobsApi` instead of reading the static shared array directly.
+
+#### [MODIFY] [candidate-dashboard.tsx](file:///d:/startup2/apps/web/components/dashboard/candidate-dashboard.tsx) & [subscription-plans.tsx](file:///d:/startup2/apps/web/components/dashboard/subscription-plans.tsx)
+- Connect candidate dashboards to fetch active applications via `applicationsApi`.
+- Trigger checkout flow when clicking subscription CTAs.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Run NestJS compilation check: `npm run lint -w apps/api` and `npm run build -w apps/api`.
+- Run frontend compilation check: `npm run lint -w apps/web` and `npm run build -w apps/web`.
+
+### Manual Verification
+- Run the NestJS dev API server (`npm run dev`) and test REST API endpoints using Swagger docs (`http://localhost:4000/docs`).
+- Test candidate resume creation, AI resume improvements, job catalog search, applying for jobs, and viewing applications in candidate and employer dashboards.

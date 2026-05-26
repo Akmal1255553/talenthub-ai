@@ -23,7 +23,7 @@ interface SidebarProps {
 
 export function Sidebar({ setActiveTab }: SidebarProps) {
   return (
-    <aside className="sticky top-[92px] h-fit w-[336px] space-y-4">
+    <aside className="sticky top-[92px] h-fit w-full space-y-4">
       <section className="rounded-2xl border border-border bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-md">
         <button
           type="button"

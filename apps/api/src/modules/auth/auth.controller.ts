@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { RequestUser } from "../../common/strategies/jwt.strategy";
-import { LoginDto, RegisterDto } from "./dto/auth.dto";
+import { GoogleDevLoginDto, GoogleLoginDto, LoginDto, RegisterDto } from "./dto/auth.dto";
 import { AuthService } from "./auth.service";
 
 @ApiTags("auth")
@@ -19,6 +19,16 @@ export class AuthController {
   @Post("login")
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post("google")
+  google(@Body() dto: GoogleLoginDto) {
+    return this.auth.googleLogin(dto);
+  }
+
+  @Post("google/dev")
+  googleDev(@Body() dto: GoogleDevLoginDto) {
+    return this.auth.googleLoginDevDirect(dto);
   }
 
   @ApiBearerAuth()

@@ -9,31 +9,72 @@ function formatPeriod(start: string, end?: string, current?: boolean) {
   return `${start} — ${endLabel}`;
 }
 
+export type ResumeTemplate = "modern" | "classic" | "executive";
+
+const templateStyles: Record<
+  ResumeTemplate,
+  { article: string; header: string; accent: string; sectionTitle: string }
+> = {
+  modern: {
+    article: "",
+    header: "border-b border-slate-200 pb-6",
+    accent: "text-[var(--brand)]",
+    sectionTitle: "text-xs font-bold uppercase tracking-widest text-slate-500",
+  },
+  classic: {
+    article: "font-serif",
+    header: "border-b-2 border-slate-800 pb-6",
+    accent: "text-slate-800",
+    sectionTitle: "text-sm font-semibold text-slate-800 border-b border-slate-300 pb-1",
+  },
+  executive: {
+    article: "",
+    header: "-mx-8 -mt-8 mb-6 rounded-t-2xl bg-slate-900 px-8 pb-6 pt-8 text-white md:-mx-10 md:-mt-10 md:px-10 md:pt-10",
+    accent: "text-amber-300",
+    sectionTitle: "text-xs font-bold uppercase tracking-widest text-slate-600",
+  },
+};
+
 export function ResumePreview({
   content,
   className,
+  template = "modern",
 }: {
   content: ResumeContent;
   className?: string;
+  template?: ResumeTemplate;
 }) {
   const { personal } = content;
+  const t = templateStyles[template];
+  const isExecutive = template === "executive";
 
   return (
     <article
       className={cn(
         "resume-preview mx-auto w-full max-w-[210mm] rounded-2xl border border-border bg-white p-8 text-[13px] leading-relaxed text-slate-800 shadow-lg print:shadow-none dark:bg-white dark:text-slate-800 md:p-10",
+        t.article,
         className,
       )}
     >
-      <header className="border-b border-slate-200 pb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+      <header className={t.header}>
+        <h1
+          className={cn(
+            "text-2xl font-bold tracking-tight md:text-3xl",
+            isExecutive ? "text-white" : "text-slate-900",
+          )}
+        >
           {personal.fullName || "Ваше имя"}
         </h1>
-        <p className="mt-1 text-lg font-medium text-[var(--brand)]">
+        <p className={cn("mt-1 text-lg font-medium", t.accent)}>
           {personal.desiredPosition || "Желаемая должность"}
         </p>
 
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
+        <div
+          className={cn(
+            "mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm",
+            isExecutive ? "text-slate-300" : "text-slate-600",
+          )}
+        >
           {personal.email && (
             <span className="inline-flex items-center gap-1.5">
               <Mail className="size-3.5" />
@@ -55,7 +96,7 @@ export function ResumePreview({
         </div>
 
         {personal.salary && (
-          <p className="mt-3 text-sm font-medium text-slate-700">
+          <p className={cn("mt-3 text-sm font-medium", isExecutive ? "text-slate-200" : "text-slate-700")}>
             Желаемая зарплата: {personal.salary.amount.toLocaleString("ru-RU")} {personal.salary.currency}
             {personal.salary.period === "month" ? " / мес" : " / год"}
           </p>
@@ -64,14 +105,14 @@ export function ResumePreview({
 
       {content.about && (
         <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">О себе</h2>
+          <h2 className={t.sectionTitle}>О себе</h2>
           <p className="mt-2 whitespace-pre-wrap text-slate-700">{content.about}</p>
         </section>
       )}
 
       {content.experience.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Опыт работы</h2>
+          <h2 className={t.sectionTitle}>Опыт работы</h2>
           <ul className="mt-3 space-y-5">
             {content.experience.map((exp) => (
               <li key={exp.id}>
@@ -98,7 +139,7 @@ export function ResumePreview({
 
       {content.education.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Образование</h2>
+          <h2 className={t.sectionTitle}>Образование</h2>
           <ul className="mt-3 space-y-4">
             {content.education.map((edu) => (
               <li key={edu.id}>
@@ -116,7 +157,7 @@ export function ResumePreview({
 
       {content.skills.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Навыки</h2>
+          <h2 className={t.sectionTitle}>Навыки</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {content.skills.map((skill) => (
               <span
@@ -132,7 +173,7 @@ export function ResumePreview({
 
       {content.languages.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Языки</h2>
+          <h2 className={t.sectionTitle}>Языки</h2>
           <ul className="mt-2 space-y-1">
             {content.languages.map((lang) => (
               <li key={`${lang.name}-${lang.level}`} className="text-slate-700">
