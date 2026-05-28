@@ -7,7 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "npx --yes concurrently -k -n api,web -c blue,magenta \"npm run dev -w @talenthub/api\" \"npm run dev -w @talenthub/web\"",
+    "dev:api": "npm run dev -w @talenthub/api",
+    "dev:web": "npm run dev -w @talenthub/web",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
