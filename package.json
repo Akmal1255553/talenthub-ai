@@ -7,6 +7,8 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "node scripts/railway-build.mjs",
+    "start": "node scripts/railway-start.mjs",
     "dev": "npx --yes concurrently -k -n api,web -c blue,magenta \"npm run dev -w @talenthub/api\" \"npm run dev -w @talenthub/web\"",
     "dev:api": "npm run dev -w @talenthub/api",
     "dev:web": "npm run dev -w @talenthub/web",
@@ -14,7 +16,11 @@
     "deploy:ps": "docker compose ps",
     "deploy:logs": "docker compose logs -f --tail=200",
     "deploy:down": "docker compose down",
-    "build": "npm run build --workspaces --if-present",
+    "railway:build:api": "npm run build -w packages/shared && npm run prisma:generate -w @talenthub/api && npm run build -w @talenthub/api",
+    "railway:start:api": "npm run prisma:db:push -w @talenthub/api && npm run start:prod -w @talenthub/api",
+    "railway:build:web": "npm run build -w packages/shared && npm run build -w @talenthub/web",
+    "railway:start:web": "npm run start -w @talenthub/web",
+    "build:all": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run prisma:migrate -w apps/api",
